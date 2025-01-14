@@ -96,7 +96,6 @@ app.post("/users", (req, res) => {
 app.delete("/users", (req, res) => {
   res.set("Content-Type", "application/json");
 
-  // Validate the 'id' query parameter
   const userId = req.query.id;
   if (!userId) {
     return res.status(400).json({ message: "Missing 'id' query parameter" });
@@ -111,22 +110,186 @@ app.delete("/users", (req, res) => {
       }
 
       if (this.changes === 1) {
-        // One item was deleted
         return res.status(200).json({
           message: `User with ID ${userId} was removed from the list`,
         });
       } else {
-        // No rows were deleted
         return res
           .status(404)
           .json({ message: `User with ID ${userId} not found` });
       }
     });
   } catch (err) {
-    // Catch any unexpected errors
     console.error(err.message);
     return res.status(500).json({ error: "Internal server error" });
   }
+});
+
+app.get("/events", (req, res) => {
+  const sql = `SELECT * FROM Events`;
+  DB.all(sql, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json({ events: rows });
+  });
+});
+
+app.get("/events/:id", (req, res) => {
+  const id = parseInt(req.params.id);
+
+  if (isNaN(id) || id <= 0) {
+    return res.status(400).json({ message: "Invalid event ID" });
+  }
+
+  const sql = "SELECT * FROM Events WHERE id = ?";
+  DB.get(sql, [id], (err, row) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: err.message });
+    }
+
+    if (!row) {
+      return res.status(404).json({ message: `Event ${id} not found` });
+    }
+
+    res.status(200).json({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      location: row.location,
+      date: row.date,
+      created_by: row.created_by,
+    });
+  });
+});
+
+app.post("/events", (req, res) => {
+  const { title, description, location, created_by } = req.body;
+
+  if (!title || !created_by) {
+    return res
+      .status(400)
+      .json({ error: "Missing required fields: title and created_by" });
+  }
+
+  const currentDate = new Date().toISOString();
+
+  const sql = `
+    INSERT INTO Events (title, description, location, date, created_by)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+
+  DB.run(
+    sql,
+    [title, description || null, location || null, currentDate, created_by],
+    function (err) {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: "Failed to create event" });
+      }
+
+      res.status(201).json({
+        message: "Event created successfully",
+        eventId: this.lastID,
+      });
+    }
+  );
+});
+
+app.delete("/events/:id", (req, res) => {
+  const eventId = parseInt(req.params.id);
+  const { user_id, role } = req.body;
+
+  if (isNaN(eventId) || eventId <= 0 || !user_id || !role) {
+    return res
+      .status(400)
+      .json({ error: "Invalid event ID or missing user information" });
+  }
+
+  const selectSql = "SELECT * FROM Events WHERE id = ?";
+  DB.get(selectSql, [eventId], (err, row) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (!row) {
+      return res.status(404).json({ message: `Event ${eventId} not found` });
+    }
+
+    if (role === "staff" || row.created_by === user_id) {
+      const deleteSql = "DELETE FROM Events WHERE id = ?";
+      DB.run(deleteSql, [eventId], function (err) {
+        if (err) {
+          console.error(err.message);
+          return res.status(500).json({ error: "Failed to delete event" });
+        }
+
+        res
+          .status(200)
+          .json({ message: `Event ${eventId} deleted successfully` });
+      });
+    } else {
+      res
+        .status(403)
+        .json({ message: "You do not have permission to delete this event" });
+    }
+  });
+});
+
+app.put("/events/:id", (req, res) => {
+  const eventId = parseInt(req.params.id);
+  const { title, description, location, date, user_id, role } = req.body;
+
+  if (isNaN(eventId) || eventId <= 0 || !user_id || !role) {
+    return res
+      .status(400)
+      .json({ error: "Invalid event ID or missing user information" });
+  }
+
+  const selectSql = "SELECT * FROM Events WHERE id = ?";
+  DB.get(selectSql, [eventId], (err, row) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (!row) {
+      return res.status(404).json({ message: `Event ${eventId} not found` });
+    }
+
+    if (role === "staff" || row.created_by === user_id) {
+      const updateSql = `
+        UPDATE Events
+        SET title = ?, description = ?, location = ?, date = ?
+        WHERE id = ?
+      `;
+
+      DB.run(
+        updateSql,
+        [
+          title || row.title,
+          description || row.description,
+          location || row.location,
+          date || row.date,
+          eventId,
+        ],
+        function (err) {
+          if (err) {
+            console.error(err.message);
+            return res.status(500).json({ error: "Failed to update event" });
+          }
+
+          res
+            .status(200)
+            .json({ message: `Event ${eventId} updated successfully` });
+        }
+      );
+    } else {
+      res
+        .status(403)
+        .json({ message: "You do not have permission to update this event" });
+    }
+  });
 });
 
 app.listen(3000, (err) => {
