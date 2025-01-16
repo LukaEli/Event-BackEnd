@@ -393,6 +393,71 @@ app.get("/event-registrations/event/:eventId", (req, res) => {
   });
 });
 
+app.get("/tokens/:userId", (req, res) => {
+  const userId = parseInt(req.params.userId);
+
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: "Invalid user_id format" });
+  }
+
+  const sql = `SELECT * FROM GoogleCalendarTokens WHERE user_id = ?`;
+
+  DB.get(sql, [userId], (err, row) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: "Database error" });
+    }
+    if (!row) {
+      return res.status(404).json({ message: "Token not found for user" });
+    }
+    res.status(200).json(row);
+  });
+});
+
+app.post("/tokens", (req, res) => {
+  const { user_id, access_token, refresh_token, token_expiry } = req.body;
+
+  if (!user_id || !access_token || !refresh_token || !token_expiry) {
+    return res.status(400).json({
+      error:
+        "Missing required fields: user_id, access_token, refresh_token, token_expiry",
+    });
+  }
+
+  const insertOrUpdateSql = `
+    INSERT OR REPLACE INTO GoogleCalendarTokens (user_id, access_token, refresh_token, token_expiry)
+    VALUES (?, ?, ?, ?)
+  `;
+
+  DB.run(
+    insertOrUpdateSql,
+    [user_id, access_token, refresh_token, token_expiry],
+    function (err) {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: "Failed to save token" });
+      }
+      res.status(200).json({ message: "Token saved successfully" });
+    }
+  );
+});
+
+app.delete("/tokens/:userId", (req, res) => {
+  const userId = parseInt(req.params.userId);
+  const sql = `DELETE FROM GoogleCalendarTokens WHERE user_id = ?`;
+
+  DB.run(sql, [userId], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: "Failed to delete token" });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ message: "Token not found for user" });
+    }
+    res.status(200).json({ message: "Token deleted successfully" });
+  });
+});
+
 app.listen(3000, (err) => {
   if (err) {
     console.error("ERROR:", err.message);
