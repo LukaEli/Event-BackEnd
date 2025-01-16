@@ -292,6 +292,107 @@ app.put("/events/:id", (req, res) => {
   });
 });
 
+// Retrieve all event registrations
+app.get("/event-registrations", (req, res) => {
+  const sql = `SELECT * FROM EventRegistrations`;
+  DB.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error(err.message);
+      return res
+        .status(500)
+        .json({ error: "Failed to retrieve registrations" });
+    }
+    res.status(200).json({ registrations: rows });
+  });
+});
+
+// Retrieve a specific event registration by ID
+app.get("/event-registrations/:id", (req, res) => {
+  const id = parseInt(req.params.id);
+  const sql = "SELECT * FROM EventRegistrations WHERE id = ?";
+  DB.get(sql, [id], (err, row) => {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: "Failed to retrieve registration" });
+    }
+    if (!row) {
+      return res.status(404).json({ message: `Registration ${id} not found` });
+    }
+    res.status(200).json(row);
+  });
+});
+
+// Create a new event registration
+app.post("/event-registrations", (req, res) => {
+  const { user_id, event_id } = req.body;
+
+  if (!user_id || !event_id) {
+    return res
+      .status(400)
+      .json({ error: "Missing required fields: user_id and event_id" });
+  }
+
+  const sql = `
+    INSERT INTO EventRegistrations (user_id, event_id)
+    VALUES (?, ?)
+  `;
+  DB.run(sql, [user_id, event_id], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(400).json({ error: err.message });
+    }
+    res.status(201).json({
+      message: "Event registration created successfully",
+      registrationId: this.lastID,
+    });
+  });
+});
+
+// Delete a specific event registration by ID
+app.delete("/event-registrations/:id", (req, res) => {
+  const id = parseInt(req.params.id);
+
+  if (isNaN(id) || id <= 0) {
+    return res.status(400).json({ error: "Invalid registration ID" });
+  }
+
+  const sql = `DELETE FROM EventRegistrations WHERE id = ?`;
+  DB.run(sql, [id], function (err) {
+    if (err) {
+      console.error(err.message);
+      return res.status(500).json({ error: "Failed to delete registration" });
+    }
+
+    if (this.changes === 0) {
+      return res.status(404).json({ message: `Registration ${id} not found` });
+    }
+
+    res
+      .status(200)
+      .json({ message: `Registration ${id} deleted successfully` });
+  });
+});
+
+// Retrieve all registrations for a specific event
+app.get("/event-registrations/event/:eventId", (req, res) => {
+  const eventId = parseInt(req.params.eventId);
+
+  if (isNaN(eventId) || eventId <= 0) {
+    return res.status(400).json({ error: "Invalid event ID" });
+  }
+
+  const sql = `SELECT * FROM EventRegistrations WHERE event_id = ?`;
+  DB.all(sql, [eventId], (err, rows) => {
+    if (err) {
+      console.error(err.message);
+      return res
+        .status(500)
+        .json({ error: "Failed to retrieve registrations for event" });
+    }
+    res.status(200).json({ registrations: rows });
+  });
+});
+
 app.listen(3000, (err) => {
   if (err) {
     console.error("ERROR:", err.message);
