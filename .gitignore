@@ -37,10 +37,7 @@ coverage/
 .AppleDouble
 .LSOverride
 
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
+
 
 # Temp files
 *.swp
