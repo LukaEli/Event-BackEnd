@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+mydata.db
+*.sqlite
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+
+# Testing
+coverage/
+
+# IDE - VSCode
+.vscode/
+*.code-workspace
+
+# IDE - WebStorm/IntelliJ
+.idea/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temp files
+*.swp
+*.swo
+*~
+
+# Build output
+dist/
+build/ 
