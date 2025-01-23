@@ -9,7 +9,9 @@ package-lock.json
 .env.development
 .env.test
 .env.production
+.env.example
 *.env
+
 
 # Database
 *.db
