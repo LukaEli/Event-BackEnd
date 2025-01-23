@@ -5,6 +5,7 @@ import eventRoutes from "./routes/events.js";
 import registrationRoutes from "./routes/registrations.js";
 import tokenRoutes from "./routes/tokens.js";
 import cors from "cors";
+import { testConnection } from "./connect.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -71,8 +72,12 @@ app.use((err, req, res, next) => {
 });
 
 // Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(PORT, async () => {
+  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  console.log("Press Ctrl+C to quit.");
+
+  // Test database connection
+  await testConnection();
 });
 
 export { app };
