@@ -129,21 +129,50 @@ describe("API Endpoints", () => {
   // Event endpoints tests
   describe("Event Endpoints", () => {
     let eventId;
+    let staffUserId; // Variable to hold the staff user ID
+
+    // Create a staff user before running the tests
+    beforeAll(async () => {
+      // Create a staff user
+      const staffUserRes = await request(app).post("/users").send({
+        name: "Staff User",
+        email: "staff@example.com",
+        password: "password123",
+        role: "staff", // Set the role to staff
+      });
+      staffUserId = parseInt(
+        staffUserRes.body.message.match(/User (\d+) saved/)[1]
+      ); // Extract the user ID
+
+      // Optionally, create a regular user for other tests
+      await request(app).post("/users").send({
+        name: "Test User",
+        email: "test@example.com",
+        password: "password123",
+        role: "user",
+      });
+    });
 
     describe("POST /events", () => {
-      it("should create a new event", async () => {
-        const res = await request(app).post("/events").send(testEvent);
+      it("should create a new event as staff", async () => {
+        const res = await request(app).post("/events").send({
+          title: "Test Event by Staff",
+          description: "Test Description",
+          location: "Test Location",
+          created_by: staffUserId, // Use the staff user ID
+          role: "staff", // Include the role in the request
+        });
 
         expect(res.status).toBe(201);
         expect(res.body.message).toBe("Event created successfully");
         expect(res.body.eventId).toBeDefined();
-        eventId = res.body.eventId;
+        eventId = res.body.eventId; // Store the event ID for later tests
       });
 
       it("should return 400 when required fields are missing", async () => {
         const res = await request(app)
           .post("/events")
-          .send({ title: "Incomplete Event" });
+          .send({ title: "Incomplete Event", role: "staff" }); // Missing created_by
 
         expect(res.status).toBe(400);
         expect(res.body.error).toBe(

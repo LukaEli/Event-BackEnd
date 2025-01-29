@@ -56,3 +56,5 @@ Desktop.ini
 # Build output
 dist/
 build/ 
+
+/data
