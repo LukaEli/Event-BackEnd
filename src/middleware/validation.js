@@ -1,4 +1,3 @@
-// Input validation middleware
 export const validateUserId = (req, res, next) => {
   const id = parseInt(req.params.id);
   if (isNaN(id) || id <= 0) {
@@ -57,11 +56,21 @@ export const validateTokenInput = (req, res, next) => {
 };
 
 export const isStaff = (req, res, next) => {
-  const { role } = req.body;
+  const headerRole = req.headers["x-user-role"];
+  const bodyRole = req.body.role;
+  const role = headerRole || bodyRole;
+
+  if (!role) {
+    return res.status(403).json({
+      error: "Access denied. No role provided.",
+    });
+  }
+
   if (role !== "staff") {
     return res.status(403).json({
       error: "Access denied. Staff only.",
     });
   }
+
   next();
 };

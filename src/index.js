@@ -10,16 +10,27 @@ import { testConnection } from "./connect.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(bodyParser.json());
-
-// Add CORS for frontend
+// Update CORS configuration to allow custom headers
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-User-Role"],
+    credentials: true,
   })
 );
 
+app.use(bodyParser.json());
+
 // Root route
+app.use((req, res, next) => {
+  // Log incoming requests for debugging
+  console.log(
+    `${req.method} ${req.path} - Role: ${req.headers["x-user-role"]}`
+  );
+  next();
+});
+
 app.get("/", (req, res) => {
   res.json({
     message: "Welcome to the Events API",
