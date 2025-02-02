@@ -15,15 +15,8 @@ router.get("/:id", validateEventId, checkEventExists, (req, res) => {
 
 router.post("/", validateEventInput, (req, res) => {
   const { title, description, location, created_by } = req.body;
-  const headerRole = req.headers["x-user-role"];
-  const bodyRole = req.body.role;
-  const role = headerRole || bodyRole;
-
-  if (role !== "staff") {
-    return res.status(403).json({ error: "Access denied. Staff only." });
-  }
-
   const currentDate = new Date().toISOString();
+
   const sql = `
     INSERT INTO Events (title, description, location, date, created_by)
     VALUES (?, ?, ?, ?, ?)

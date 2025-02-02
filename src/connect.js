@@ -1,5 +1,5 @@
 import sqlite3 from "sqlite3";
-import pg from "pg"; // For PostgreSQL when deploying
+import pg from "pg";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -13,13 +13,11 @@ if (process.env.NODE_ENV === "production") {
     ssl: { rejectUnauthorized: false },
   });
 
-  // Test PostgreSQL connection
   pool
     .connect()
     .then(() => {
       console.log("✅ PostgreSQL database connected successfully");
 
-      // Create tables if they don't exist
       const createTables = async () => {
         try {
           await pool.query(`
@@ -37,8 +35,11 @@ if (process.env.NODE_ENV === "production") {
               title TEXT NOT NULL,
               description TEXT,
               location TEXT,
-              date TIMESTAMP NOT NULL,
-              created_by INTEGER NOT NULL REFERENCES Users(id) ON DELETE CASCADE
+              date DATE NOT NULL,
+              start_time TIME,
+              end_time TIME,
+              created_by INTEGER NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS EventRegistrations (
@@ -54,7 +55,8 @@ if (process.env.NODE_ENV === "production") {
               user_id INTEGER NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
               access_token TEXT NOT NULL,
               refresh_token TEXT NOT NULL,
-              token_expiry TIMESTAMP NOT NULL
+              token_expiry TIMESTAMP NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
           `);
           console.log("✅ PostgreSQL tables created successfully");
@@ -81,12 +83,64 @@ if (process.env.NODE_ENV === "production") {
         console.error("❌ SQLite database connection error:", err);
       } else {
         console.log("✅ SQLite database connected successfully");
+
+        // Create tables for SQLite
+        DB.serialize(() => {
+          DB.run(`
+            CREATE TABLE IF NOT EXISTS Users (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              email TEXT UNIQUE NOT NULL,
+              password TEXT NOT NULL,
+              role TEXT CHECK(role IN ('user', 'staff')) NOT NULL DEFAULT 'user',
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
+
+          DB.run(`
+            CREATE TABLE IF NOT EXISTS Events (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              title TEXT NOT NULL,
+              description TEXT,
+              location TEXT,
+              date TEXT NOT NULL,
+              start_time TEXT,
+              end_time TEXT,
+              created_by INTEGER NOT NULL,
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (created_by) REFERENCES Users(id) ON DELETE CASCADE
+            )
+          `);
+
+          DB.run(`
+            CREATE TABLE IF NOT EXISTS EventRegistrations (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              user_id INTEGER NOT NULL,
+              event_id INTEGER NOT NULL,
+              registered_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(user_id, event_id),
+              FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+              FOREIGN KEY (event_id) REFERENCES Events(id) ON DELETE CASCADE
+            )
+          `);
+
+          DB.run(`
+            CREATE TABLE IF NOT EXISTS GoogleCalendarTokens (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              user_id INTEGER NOT NULL,
+              access_token TEXT NOT NULL,
+              refresh_token TEXT NOT NULL,
+              token_expiry TEXT NOT NULL,
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+            )
+          `);
+        });
       }
     }
   );
 }
 
-// Test query function
 export const testConnection = async () => {
   try {
     if (process.env.NODE_ENV === "production") {

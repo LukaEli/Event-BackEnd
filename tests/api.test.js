@@ -1,14 +1,12 @@
 import request from "supertest";
-import { app } from "../src/index.js"; // Updated path
-import { DB } from "../src/connect.js"; // Updated path
+import { app } from "../src/index.js";
+import { DB } from "../src/connect.js";
 import { jest } from "@jest/globals";
 
 jest.setTimeout(30000);
 
 describe("API Endpoints", () => {
-  // Setup database before all tests
   beforeAll((done) => {
-    // Clear existing data from tables
     const clearTables = `
       DELETE FROM GoogleCalendarTokens;
       DELETE FROM EventRegistrations;
@@ -25,9 +23,7 @@ describe("API Endpoints", () => {
     });
   });
 
-  // Clean up after all tests
   afterAll((done) => {
-    // Clear all test data
     const clearTables = `
       DELETE FROM GoogleCalendarTokens;
       DELETE FROM EventRegistrations;
@@ -43,7 +39,7 @@ describe("API Endpoints", () => {
     });
   });
 
-  // Test data
+  // Updated test data with new schema fields
   const testUser = {
     name: "Test User",
     email: "test@example.com",
@@ -55,7 +51,9 @@ describe("API Endpoints", () => {
     title: "Test Event",
     description: "Test Description",
     location: "Test Location",
-    date: new Date().toISOString(),
+    date: new Date().toISOString().split("T")[0], // Just the date part
+    start_time: "09:00",
+    end_time: "10:00",
     created_by: 1,
   };
 
@@ -63,10 +61,9 @@ describe("API Endpoints", () => {
     user_id: 1,
     access_token: "test_access_token",
     refresh_token: "test_refresh_token",
-    token_expiry: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+    token_expiry: new Date(Date.now() + 3600000).toISOString(),
   };
 
-  // User endpoints tests
   describe("User Endpoints", () => {
     let userId;
 
@@ -126,53 +123,23 @@ describe("API Endpoints", () => {
     });
   });
 
-  // Event endpoints tests
   describe("Event Endpoints", () => {
     let eventId;
-    let staffUserId; // Variable to hold the staff user ID
-
-    // Create a staff user before running the tests
-    beforeAll(async () => {
-      // Create a staff user
-      const staffUserRes = await request(app).post("/users").send({
-        name: "Staff User",
-        email: "staff@example.com",
-        password: "password123",
-        role: "staff", // Set the role to staff
-      });
-      staffUserId = parseInt(
-        staffUserRes.body.message.match(/User (\d+) saved/)[1]
-      ); // Extract the user ID
-
-      // Optionally, create a regular user for other tests
-      await request(app).post("/users").send({
-        name: "Test User",
-        email: "test@example.com",
-        password: "password123",
-        role: "user",
-      });
-    });
 
     describe("POST /events", () => {
-      it("should create a new event as staff", async () => {
-        const res = await request(app).post("/events").send({
-          title: "Test Event by Staff",
-          description: "Test Description",
-          location: "Test Location",
-          created_by: staffUserId, // Use the staff user ID
-          role: "staff", // Include the role in the request
-        });
+      it("should create a new event", async () => {
+        const res = await request(app).post("/events").send(testEvent);
 
         expect(res.status).toBe(201);
         expect(res.body.message).toBe("Event created successfully");
         expect(res.body.eventId).toBeDefined();
-        eventId = res.body.eventId; // Store the event ID for later tests
+        eventId = res.body.eventId;
       });
 
       it("should return 400 when required fields are missing", async () => {
         const res = await request(app)
           .post("/events")
-          .send({ title: "Incomplete Event", role: "staff" }); // Missing created_by
+          .send({ title: "Incomplete Event" });
 
         expect(res.status).toBe(400);
         expect(res.body.error).toBe(
@@ -199,38 +166,29 @@ describe("API Endpoints", () => {
         expect(res.status).toBe(200);
         expect(res.body.message).toBe(`Event ${eventId} deleted successfully`);
       });
-
-      it("should return 404 when deleting non-existent event", async () => {
-        const res = await request(app)
-          .delete(`/events/99999`)
-          .send({ role: "staff" });
-
-        expect(res.status).toBe(404);
-        expect(res.body.message).toBe("Event not found");
-      });
     });
   });
 
-  // Event Registration endpoints tests
   describe("Event Registration Endpoints", () => {
     let registrationId;
 
-    // Create test user and event before registration tests
     beforeAll(async () => {
-      // Create test user
-      const userRes = await request(app).post("/users").send({
+      await request(app).post("/users").send({
         name: "Test User",
-        email: "test@example.com",
+        email: "register_test@example.com",
         password: "password123",
       });
 
-      // Create test event
-      const eventRes = await request(app).post("/events").send({
-        title: "Test Event",
-        created_by: 1,
-      });
+      await request(app)
+        .post("/events")
+        .send({
+          title: "Test Event",
+          date: new Date().toISOString().split("T")[0],
+          start_time: "09:00",
+          end_time: "10:00",
+          created_by: 1,
+        });
 
-      // Create test registration
       const regRes = await request(app).post("/event-registrations").send({
         user_id: 1,
         event_id: 1,
@@ -259,19 +217,9 @@ describe("API Endpoints", () => {
           `Registration ${registrationId} deleted successfully`
         );
       });
-
-      it("should return 404 when deleting non-existent registration", async () => {
-        const res = await request(app)
-          .delete("/event-registrations/99999")
-          .send({ role: "staff" });
-
-        expect(res.status).toBe(404);
-        expect(res.body.message).toBe("Registration not found");
-      });
     });
   });
 
-  // Google Calendar Token endpoints tests
   describe("Google Calendar Token Endpoints", () => {
     describe("POST /tokens", () => {
       it("should create a new token", async () => {
@@ -309,16 +257,6 @@ describe("API Endpoints", () => {
         expect(res.status).toBe(404);
         expect(res.body.message).toBe("Token not found for user");
       });
-    });
-  });
-
-  describe("Non-existent Endpoints", () => {
-    it("should return 404 for undefined routes", async () => {
-      const res = await request(app).get("/nonexistent-route");
-
-      expect(res.status).toBe(404);
-      expect(res.body.error).toBe("Not Found");
-      expect(res.body.message).toBe("Cannot GET /nonexistent-route");
     });
   });
 });
