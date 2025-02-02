@@ -13,13 +13,15 @@ const PORT = process.env.PORT || 3000;
 // Update CORS configuration to allow custom headers
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "https://12event.netlify.app", // Add your Netlify deployment URL
+    ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization", "X-User-Role"],
     credentials: true,
   })
 );
-
 app.use(bodyParser.json());
 
 // Root route
