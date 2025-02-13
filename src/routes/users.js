@@ -8,7 +8,6 @@ import {
 
 const router = Router();
 
-// Add this middleware to check if user is staff
 const isStaff = (req, res, next) => {
   const { role } = req.body;
   if (role !== "staff") {
@@ -22,15 +21,16 @@ const isStaff = (req, res, next) => {
 router.get("/", (req, res) => {
   const sql = "SELECT * FROM Users";
 
-  DB.all(sql, [], (err, rows) => {
-    if (err) {
+  DB.query(sql)
+    .then((result) => {
+      res.json({
+        message: "success",
+        data: result.rows,
+      });
+    })
+    .catch((err) => {
       return res.status(500).json({ error: err.message });
-    }
-    res.json({
-      message: "success",
-      data: rows,
     });
-  });
 });
 
 router.get("/:id", validateUserId, checkUserExists, (req, res) => {
@@ -39,29 +39,40 @@ router.get("/:id", validateUserId, checkUserExists, (req, res) => {
 
 router.post("/", validateUserInput, (req, res) => {
   const { name, email, password, role } = req.body;
-  const sql = `INSERT INTO Users(name, email, password, role) VALUES(?, ?, ?, ?)`;
+  const sql = `INSERT INTO Users(name, email, password, role) VALUES($1, $2, $3, $4) RETURNING id`;
 
-  DB.run(sql, [name, email, password, role || "user"], function (err) {
-    if (err) {
+  DB.query(sql, [name, email, password, role || "user"])
+    .then((result) => {
+      res
+        .status(201)
+        .json({ status: 201, message: `User ${result.rows[0].id} saved` });
+    })
+    .catch((err) => {
       return res.status(400).json({ status: 400, error: err.message });
-    }
-    res.status(201).json({ status: 201, message: `User ${this.lastID} saved` });
-  });
+    });
 });
 
 // Add DELETE route
 router.delete("/:id", isStaff, validateUserId, (req, res) => {
-  const sql = `DELETE FROM Users WHERE id = ?`;
+  const userId = req.validatedId;
 
-  DB.run(sql, [req.validatedId], function (err) {
-    if (err) {
+  const deleteRegistrationsSql = `DELETE FROM EventRegistrations WHERE user_id = $1`;
+
+  DB.query(deleteRegistrationsSql, [userId])
+    .then(() => {
+      const sql = `DELETE FROM Users WHERE id = $1`;
+
+      return DB.query(sql, [userId]);
+    })
+    .then((result) => {
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({ message: `User ${userId} deleted successfully` });
+    })
+    .catch((err) => {
       return res.status(500).json({ error: err.message });
-    }
-    if (this.changes === 0) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.json({ message: `User ${req.validatedId} deleted successfully` });
-  });
+    });
 });
 
 export default router;

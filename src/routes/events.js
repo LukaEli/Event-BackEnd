@@ -15,55 +15,80 @@ router.get("/:id", validateEventId, checkEventExists, (req, res) => {
 
 router.post("/", validateEventInput, (req, res) => {
   const { title, description, location, created_by } = req.body;
+
+  // Check for missing required fields
+  if (!title || !created_by) {
+    return res.status(400).json({
+      error: "Missing required fields: title and created_by",
+    });
+  }
+
   const currentDate = new Date().toISOString();
 
   const sql = `
     INSERT INTO Events (title, description, location, date, created_by)
-    VALUES (?, ?, ?, ?, ?)
+    VALUES ($1, $2, $3, $4, $5) RETURNING id;
   `;
 
-  DB.run(
-    sql,
-    [title, description || null, location || null, currentDate, created_by],
-    function (err) {
-      if (err) {
-        console.error(err.message);
-        return res.status(500).json({ error: "Failed to create event" });
-      }
+  DB.query(sql, [
+    title,
+    description || null,
+    location || null,
+    currentDate,
+    created_by,
+  ])
+    .then((result) => {
       res.status(201).json({
         message: "Event created successfully",
-        eventId: this.lastID,
+        eventId: result.rows[0].id,
       });
-    }
-  );
+    })
+    .catch((err) => {
+      console.error("Error creating event:", err);
+      return res
+        .status(500)
+        .json({ error: "Failed to create event", details: err.message });
+    });
 });
 
 router.delete("/:id", isStaff, validateEventId, (req, res) => {
-  const sql = `DELETE FROM Events WHERE id = ?`;
+  const eventId = req.validatedEventId;
 
-  DB.run(sql, [req.validatedEventId], function (err) {
-    if (err) {
+  const deleteRegistrationsSql = `DELETE FROM EventRegistrations WHERE event_id = $1`;
+
+  DB.query(deleteRegistrationsSql, [eventId])
+    .then(() => {
+      const sql = `DELETE FROM Events WHERE id = $1`;
+
+      return DB.query(sql, [eventId]);
+    })
+    .then((result) => {
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      res.json({
+        message: `Event ${eventId} deleted successfully`,
+      });
+    })
+    .catch((err) => {
+      console.error(err.message);
       return res.status(500).json({ error: err.message });
-    }
-    if (this.changes === 0) {
-      return res.status(404).json({ message: "Event not found" });
-    }
-    res.json({ message: `Event ${req.validatedEventId} deleted successfully` });
-  });
+    });
 });
 
 router.get("/", (req, res) => {
   const sql = "SELECT * FROM Events";
 
-  DB.all(sql, [], (err, rows) => {
-    if (err) {
+  DB.query(sql)
+    .then((result) => {
+      res.json({
+        message: "success",
+        data: result.rows,
+      });
+    })
+    .catch((err) => {
       return res.status(500).json({ error: err.message });
-    }
-    res.json({
-      message: "success",
-      data: rows,
     });
-  });
 });
 
 export default router;

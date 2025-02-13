@@ -10,12 +10,11 @@ import { testConnection } from "./connect.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Update CORS configuration to allow custom headers
 app.use(
   cors({
     origin: [
       process.env.FRONTEND_URL || "http://localhost:3000",
-      "https://12event.netlify.app", // Add your Netlify deployment URL
+      "https://12event.netlify.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization", "X-User-Role"],
@@ -26,10 +25,6 @@ app.use(bodyParser.json());
 
 // Root route
 app.use((req, res, next) => {
-  // Log incoming requests for debugging
-  console.log(
-    `${req.method} ${req.path} - Role: ${req.headers["x-user-role"]}`
-  );
   next();
 });
 

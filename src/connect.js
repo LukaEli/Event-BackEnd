@@ -6,7 +6,7 @@ dotenv.config();
 
 let DB;
 
-if (process.env.NODE_ENV === "production") {
+if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "test") {
   // PostgreSQL for production
   const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
@@ -72,78 +72,82 @@ if (process.env.NODE_ENV === "production") {
     });
 
   DB = pool;
-} else {
-  // SQLite for development
-  const sql3 = sqlite3.verbose();
-  DB = new sql3.Database(
-    "./mydata.db",
-    sql3.OPEN_READWRITE | sql3.OPEN_CREATE,
-    (err) => {
-      if (err) {
-        console.error("❌ SQLite database connection error:", err);
-      } else {
-        console.log("✅ SQLite database connected successfully");
-
-        // Create tables for SQLite
-        DB.serialize(() => {
-          DB.run(`
-            CREATE TABLE IF NOT EXISTS Users (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              name TEXT NOT NULL,
-              email TEXT UNIQUE NOT NULL,
-              password TEXT NOT NULL,
-              role TEXT CHECK(role IN ('user', 'staff')) NOT NULL DEFAULT 'user',
-              created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-          `);
-
-          DB.run(`
-            CREATE TABLE IF NOT EXISTS Events (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              title TEXT NOT NULL,
-              description TEXT,
-              location TEXT,
-              date TEXT NOT NULL,
-              start_time TEXT,
-              end_time TEXT,
-              created_by INTEGER NOT NULL,
-              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-              FOREIGN KEY (created_by) REFERENCES Users(id) ON DELETE CASCADE
-            )
-          `);
-
-          DB.run(`
-            CREATE TABLE IF NOT EXISTS EventRegistrations (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              user_id INTEGER NOT NULL,
-              event_id INTEGER NOT NULL,
-              registered_at TEXT DEFAULT CURRENT_TIMESTAMP,
-              UNIQUE(user_id, event_id),
-              FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
-              FOREIGN KEY (event_id) REFERENCES Events(id) ON DELETE CASCADE
-            )
-          `);
-
-          DB.run(`
-            CREATE TABLE IF NOT EXISTS GoogleCalendarTokens (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              user_id INTEGER NOT NULL,
-              access_token TEXT NOT NULL,
-              refresh_token TEXT NOT NULL,
-              token_expiry TEXT NOT NULL,
-              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-              FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
-            )
-          `);
-        });
-      }
-    }
-  );
 }
+//  else {
+//   // SQLite for development
+//   const sql3 = sqlite3.verbose();
+//   DB = new sql3.Database(
+//     "./mydata.db",
+//     sql3.OPEN_READWRITE | sql3.OPEN_CREATE,
+//     (err) => {
+//       if (err) {
+//         console.error("❌ SQLite database connection error:", err);
+//       } else {
+//         console.log("✅ SQLite database connected successfully");
+
+//         // Create tables for SQLite
+//         DB.serialize(() => {
+//           DB.run(`
+//             CREATE TABLE IF NOT EXISTS Users (
+//               id INTEGER PRIMARY KEY AUTOINCREMENT,
+//               name TEXT NOT NULL,
+//               email TEXT UNIQUE NOT NULL,
+//               password TEXT NOT NULL,
+//               role TEXT CHECK(role IN ('user', 'staff')) NOT NULL DEFAULT 'user',
+//               created_at TEXT DEFAULT CURRENT_TIMESTAMP
+//             )
+//           `);
+
+//           DB.run(`
+//             CREATE TABLE IF NOT EXISTS Events (
+//               id INTEGER PRIMARY KEY AUTOINCREMENT,
+//               title TEXT NOT NULL,
+//               description TEXT,
+//               location TEXT,
+//               date TEXT NOT NULL,
+//               start_time TEXT,
+//               end_time TEXT,
+//               created_by INTEGER NOT NULL,
+//               created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+//               FOREIGN KEY (created_by) REFERENCES Users(id) ON DELETE CASCADE
+//             )
+//           `);
+
+//           DB.run(`
+//             CREATE TABLE IF NOT EXISTS EventRegistrations (
+//               id INTEGER PRIMARY KEY AUTOINCREMENT,
+//               user_id INTEGER NOT NULL,
+//               event_id INTEGER NOT NULL,
+//               registered_at TEXT DEFAULT CURRENT_TIMESTAMP,
+//               UNIQUE(user_id, event_id),
+//               FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+//               FOREIGN KEY (event_id) REFERENCES Events(id) ON DELETE CASCADE
+//             )
+//           `);
+
+//           DB.run(`
+//             CREATE TABLE IF NOT EXISTS GoogleCalendarTokens (
+//               id INTEGER PRIMARY KEY AUTOINCREMENT,
+//               user_id INTEGER NOT NULL,
+//               access_token TEXT NOT NULL,
+//               refresh_token TEXT NOT NULL,
+//               token_expiry TEXT NOT NULL,
+//               created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+//               FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+//             )
+//           `);
+//         });
+//       }
+//     }
+//   );
+// }
 
 export const testConnection = async () => {
   try {
-    if (process.env.NODE_ENV === "production") {
+    if (
+      process.env.NODE_ENV === "production" ||
+      process.env.NODE_ENV === "test"
+    ) {
       const result = await DB.query("SELECT NOW()");
       console.log("📊 Database test query result:", result.rows[0]);
     } else {
