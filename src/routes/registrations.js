@@ -39,7 +39,7 @@ router.post("/", validateRegistrationInput, (req, res) => {
     });
 });
 
-router.delete("/:id", isStaff, (req, res) => {
+router.delete("/:id", (req, res) => {
   const id = parseInt(req.params.id);
 
   if (isNaN(id)) {
