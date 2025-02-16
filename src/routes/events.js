@@ -14,7 +14,9 @@ router.get("/:id", validateEventId, checkEventExists, (req, res) => {
 });
 
 router.post("/", validateEventInput, (req, res) => {
-  const { title, description, location, created_by } = req.body;
+  console.log(req.body);
+  const { title, description, location, date, startTime, endTime, created_by } =
+    req.body;
 
   // Check for missing required fields
   if (!title || !created_by) {
@@ -23,18 +25,18 @@ router.post("/", validateEventInput, (req, res) => {
     });
   }
 
-  const currentDate = new Date().toISOString();
-
   const sql = `
-    INSERT INTO Events (title, description, location, date, created_by)
-    VALUES ($1, $2, $3, $4, $5) RETURNING id;
+    INSERT INTO Events (title, description, location, date,start_time,end_time,created_by)
+    VALUES ($1, $2, $3, $4, $5,$6,$7) RETURNING id;
   `;
 
   DB.query(sql, [
     title,
     description || null,
     location || null,
-    currentDate,
+    date,
+    startTime,
+    endTime,
     created_by,
   ])
     .then((result) => {
