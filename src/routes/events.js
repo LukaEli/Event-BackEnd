@@ -53,6 +53,55 @@ router.post("/", validateEventInput, (req, res) => {
     });
 });
 
+router.put(
+  "/:id",
+  validateEventId,
+  checkEventExists,
+  validateEventInput,
+  (req, res) => {
+    const eventId = req.validatedEventId;
+    const { title, description, location, date, startTime, endTime } = req.body;
+
+    // Check for missing required fields
+    if (!title) {
+      return res.status(400).json({
+        error: "Missing required field: title",
+      });
+    }
+
+    const sql = `
+        UPDATE Events
+        SET title = $1, description = $2, location = $3, date = $4, start_time = $5, end_time = $6
+        WHERE id = $7 RETURNING *;
+    `;
+
+    DB.query(sql, [
+      title,
+      description || null,
+      location || null,
+      date,
+      startTime,
+      endTime,
+      eventId,
+    ])
+      .then((result) => {
+        if (result.rowCount === 0) {
+          return res.status(404).json({ message: "Event not found" });
+        }
+        res.status(200).json({
+          message: "Event updated successfully",
+          event: result.rows[0],
+        });
+      })
+      .catch((err) => {
+        console.error("Error updating event:", err);
+        return res
+          .status(500)
+          .json({ error: "Failed to update event", details: err.message });
+      });
+  }
+);
+
 router.delete("/:id", isStaff, validateEventId, (req, res) => {
   const eventId = req.validatedEventId;
 
